@@ -1,0 +1,33 @@
+{
+  "id": "com.family.premiere.mcpbridge",
+  "name": "MCP Bridge",
+  "version": "0.1.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": [
+    { "app": "PPRO", "minVersion": "24.0.0" }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "mcpBridgePanel",
+      "label": { "default": "MCP Bridge" },
+      "minimumSize": { "width": 230, "height": 200 },
+      "maximumSize": { "width": 2000, "height": 2000 },
+      "preferredDockedSize": { "width": 300, "height": 400 },
+      "preferredFloatingSize": { "width": 300, "height": 400 },
+      "icons": [
+        { "width": 23, "height": 23, "path": "icons/icon.png", "scale": [1, 2], "theme": ["darkest", "dark", "medium", "lightest", "light", "all"] }
+      ]
+    }
+  ],
+  "requiredPermissions": {
+    "network": {
+      "domains": ["http://localhost:39281"]
+    },
+    "localFileSystem": "fullAccess"
+  },
+  "icons": [
+    { "width": 48, "height": 48, "path": "icons/icon.png" }
+  ]
+}

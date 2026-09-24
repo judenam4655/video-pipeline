@@ -1,0 +1,15 @@
+{
+  "name": "premiere-bridge-mcp",
+  "version": "0.1.0",
+  "description": "Custom, minimal MCP server bridging an orchestrator to a Premiere Pro UXP panel via local WebSocket.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.8"
+  }
+}
