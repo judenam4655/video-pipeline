@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>영상 편집 파이프라인</title>
+<style>
+  body { font-family: -apple-system, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 20px; color: #222; }
+  h1 { font-size: 20px; }
+  .step { display: flex; align-items: center; gap: 8px; padding: 6px 0; color: #999; }
+  .step.done { color: #1a7f37; }
+  .step.active { color: #0969da; font-weight: bold; }
+  .step.error { color: #cf222e; }
+  #log { background: #f6f8fa; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; height: 200px; overflow-y: auto; margin-top: 16px; }
+  button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
+  input[type=file] { margin: 10px 0; }
+</style>
+</head>
+<body>
+  <h1>영상 편집 파이프라인 (베타)</h1>
+
+  <div id="upload-section">
+    <p>3개의 원본 영상 파일을 선택하세요.</p>
+    <input type="file" id="fileInput" multiple accept="video/*" />
+    <br/>
+    <button id="startBtn">시작</button>
+  </div>
+
+  <div id="status-section" style="display:none; margin-top: 24px;">
+    <div class="step" data-step="1">1. 영상 동기화 (sync_clips)</div>
+    <div class="step" data-step="2">2. 추임새 제거 (remove_fillers)</div>
+    <div class="step" data-step="3">3. 자막 추출 (transcribe)</div>
+    <div class="step" data-step="4">4. 삭제 후보 탐지 (detect_deletions)</div>
+    <div class="step" data-step="5">5. 마커 표시 (place_markers)</div>
+    <div id="log"></div>
+    <button id="resumeBtn" style="display:none;">재시작 (실패 지점부터)</button>
+  </div>
+
+<script>
+let currentJobId = null;
+let pollHandle = null;
+
+document.getElementById("startBtn").onclick = async () => {
+  const files = document.getElementById("fileInput").files;
+  if (files.length !== 3) {
+    alert("정확히 3개의 영상을 선택해주세요.");
+    return;
+  }
+  const form = new FormData();
+  for (const f of files) form.append("files", f);
+
+  const res = await fetch("/jobs", { method: "POST", body: form });
+  const data = await res.json();
+  if (data.error) { alert(data.error); return; }
+
+  currentJobId = data.job_id;
+  document.getElementById("upload-section").style.display = "none";
+  document.getElementById("status-section").style.display = "block";
+  startPolling();
+};
+
+document.getElementById("resumeBtn").onclick = async () => {
+  await fetch(`/jobs/${currentJobId}/resume`, { method: "POST" });
+  document.getElementById("resumeBtn").style.display = "none";
+  startPolling();
+};
+
+function startPolling() {
+  pollHandle = setInterval(pollStatus, 2000);
+  pollStatus();
+}
+
+async function pollStatus() {
+  const res = await fetch(`/jobs/${currentJobId}`);
+  const job = await res.json();
+
+  document.querySelectorAll(".step").forEach(el => {
+    const stepNum = parseInt(el.dataset.step, 10);
+    el.classList.remove("done", "active", "error");
+    if (job.status === "error" && stepNum === job.step + 1) {
+      el.classList.add("error");
+    } else if (stepNum <= job.step) {
+      el.classList.add("done");
+    } else if (stepNum === job.step + 1 && job.status === "running") {
+      el.classList.add("active");
+    }
+  });
+
+  document.getElementById("log").textContent = job.log.join("\n");
+
+  if (job.status === "done") {
+    clearInterval(pollHandle);
+    document.getElementById("log").textContent += "\n\n✅ 완료! Premiere에서 마커를 확인하세요.";
+  } else if (job.status === "error") {
+    clearInterval(pollHandle);
+    document.getElementById("resumeBtn").style.display = "inline-block";
+  }
+}
+</script>
+</body>
+</html>
