@@ -23,7 +23,7 @@
   ],
   "requiredPermissions": {
     "network": {
-      "domains": ["http://localhost:39281"]
+      "domains": ["ws://localhost:39281"]
     },
     "localFileSystem": "fullAccess"
   },
