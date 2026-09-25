@@ -5,7 +5,7 @@
   "main": "index.html",
   "manifestVersion": 5,
   "host": [
-    { "app": "PPRO", "minVersion": "24.0.0" }
+    { "app": "premierepro", "minVersion": "24.0.0" }
   ],
   "entrypoints": [
     {
@@ -23,7 +23,7 @@
   ],
   "requiredPermissions": {
     "network": {
-      "domains": ["ws://localhost:39281"]
+      "domains": ["ws://localhost:39281", "ws://127.0.0.1:39281"]
     },
     "localFileSystem": "fullAccess"
   },

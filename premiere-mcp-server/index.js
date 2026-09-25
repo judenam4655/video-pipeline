@@ -31,6 +31,20 @@ const pending = new Map(); // requestId -> { resolve, reject, timeout }
 
 const wss = new WebSocketServer({ port: WS_PORT });
 
+wss.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(
+      `[bridge] Port ${WS_PORT} is already in use — likely a previous ` +
+      `instance of this server is still running. Find and stop it (e.g. ` +
+      `'lsof -i :${WS_PORT}' on macOS/Linux, 'netstat -ano | findstr ${WS_PORT}' ` +
+      `on Windows) before starting a new one.`
+    );
+  } else {
+    console.error(`[bridge] WebSocket server error: ${err.message || err}`);
+  }
+  process.exit(1);
+});
+
 wss.on("connection", (socket) => {
   console.error(`[bridge] UXP panel connected on port ${WS_PORT}`);
   panelSocket = socket;
