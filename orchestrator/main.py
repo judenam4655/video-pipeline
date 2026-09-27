@@ -86,16 +86,28 @@ async def get_job(job_id: str):
     }
 
 
+from pydantic import BaseModel
+
+# LATER NEEDS TO REMOVE WAITING FOR AUDIO EXPORTED
+class ResumeRequest(BaseModel):
+    exported_audio_path: str | None = None
+
 @app.post("/jobs/{job_id}/resume")
-async def resume_job(job_id: str):
-    """Re-runs a job from its last checkpointed step — use after fixing whatever caused a failure."""
+async def resume_job(job_id: str, req: ResumeRequest = None):
+    """Re-runs a job from its last checkpointed step. Accepts the manually exported audio path."""
     job = state_mod.load(job_id)
+    
+    if req and req.exported_audio_path:
+        # Save the manually exported audio path into the job state so Step 3 can use it
+        job.synced_sequence_id = req.exported_audio_path 
+        job.note(f"Received manual audio export path: {req.exported_audio_path}")
+
     job.status = "running"
     job.error_message = None
     job.save()
+    
     asyncio.create_task(run_pipeline(job_id))
     return {"resumed": job_id, "from_step": job.step}
-
 
 STEP_NAMES = {
     1: "sync_clips",
@@ -114,29 +126,47 @@ async def run_pipeline(job_id: str):
 
             if job.step < 1:
                 job.note("Starting: sync_clips")
+                
+                # =====================================================================
+                # TODO (Future MCP Development): Automate Sync, Trim, and Audio Export
+                # =====================================================================
+                # As of Premiere UXP v26.0, `executeMenuCommand` for syncing and native 
+                # filler-word removal hooks are not exposed. 
+                # 
+                # Future Roadmap for a fully headless step:
+                # 1. Build a Premiere MCP tool that imports and selects the clips.
+                # 2. Trigger audio sync (once Adobe exposes the hook).
+                # 3. Trim the dead space at the start to establish the 00:00:00 anchor.
+                # 4. Use Premiere's `Exporter` or `EncoderManager` objects (seen in the 
+                #    UXP DOM) to render a .wav file of the active sequence.
+                # 5. Return the filepath of that exported .wav to `job.synced_sequence_id`.
+                # =====================================================================
+                
                 result = await servers.premiere.call_tool_json(
                     "sync_clips", {"clipPaths": job.raw_clip_paths}
                 )
-                job.synced_sequence_id = result.get("sequenceId")
-                job.step = 1
-                job.note(f"Done: sync_clips -> sequence {job.synced_sequence_id}")
+                
+                # CURRENT WORKFLOW: The pipeline MUST pause here.
+                # The human editor must manually sync, trim the timeline to 00:00:00, 
+                # run filler-word removal, and export the master audio file.
+                job.step = 2 # Skip step 2 since we are batching the manual work
+                job.status = "waiting_on_human"
+                job.note("Paused: Please sync clips, trim the start, run filler-word removal, and export audio.")
+                job.save()
+                return # Exit the pipeline; user will hit the /resume endpoint with the exported audio path
 
+            # Step 2 is bypassed by the pause above, but left in sequence for the future automated roadmap
             if job.step < 2:
-                job.note("Starting: remove_fillers")
-                await servers.premiere.call_tool_json(
-                    "remove_fillers", {"sequenceId": job.synced_sequence_id}
-                )
-                job.step = 2
-                job.note("Done: remove_fillers")
+                pass 
 
             if job.step < 3:
                 job.note("Starting: transcribe")
-                # NOTE: transcriber currently expects an audio/video file path,
-                # not a Premiere sequence id — you'll likely need an extra
-                # "export sequence audio" Premiere MCP call before this, or
-                # have remove_fillers/sync_clips return an exported path
-                # directly. Left as-is for the beta skeleton; revisit once
-                # the Premiere MCP tools are actually implemented.
+                # When auto-export is implemented, job.synced_sequence_id will be populated automatically by Step 1.
+                # For now, it is populated by the manual /resume endpoint.
+                if not job.synced_sequence_id or not Path(job.synced_sequence_id).exists():
+                    raise ValueError("No valid exported audio path provided. Cannot start transcription.")
+                
+                # Pass the exported audio path to the transcriber
                 transcript = await servers.transcriber.call_tool_json(
                     "transcribe", {"sequence_audio_path": job.synced_sequence_id}
                 )

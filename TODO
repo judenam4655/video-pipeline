@@ -5,3 +5,10 @@ Current -:
 Conflict/Issue:
 #################################################
 
+main.py
+1. Audio export MCP: Premiere is needed for further automation.
+Current: Requires manual exportation.
+Conflict: Not user friendly.
+
+/transcriber-mcp-server
+1. needs to be implemented.

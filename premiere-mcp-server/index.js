@@ -100,6 +100,26 @@ function sendToPanel(action, params = {}) {
 const server = new McpServer({ name: "premiere-bridge", version: "0.1.0" });
 
 server.tool(
+  "debug_commands",
+  "Checks whether the UXP panel is connected and responsive.",
+  {},
+  async () => {
+    const result = await sendToPanel("debug_commands");
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+);
+
+server.tool(
+  "debugTextSegments",
+  "Checks whether the UXP panel is connected and responsive.",
+  {},
+  async () => {
+    const result = await sendToPanel("debug_text_segments");
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+);
+
+server.tool(
   "ping_premiere",
   "Checks whether the UXP panel is connected and responsive.",
   {},
@@ -122,7 +142,7 @@ server.tool(
 server.tool(
   "sync_clips",
   "Synchronizes 3 raw clips by audio waveform into one multi-cam or merged sequence.",
-  { clipPaths: z.array(z.string()).length(3, "Expects exactly 3 clip file paths") },
+  { clipPaths: z.any().optional() },
   async ({ clipPaths }) => {
     const result = await sendToPanel("sync_clips", { clipPaths });
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
@@ -150,6 +170,16 @@ server.tool(
   },
   async (params) => {
     const result = await sendToPanel("place_marker", params);
+    return { content: [{ type: "text", text: JSON.stringify(result) }] };
+  }
+);
+
+server.tool(
+  "get_transcript",
+  "Fetches the native timestamped speech-to-text transcript from the selected clip in Premiere's Project panel.",
+  {},
+  async () => {
+    const result = await sendToPanel("get_transcript");
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
   }
 );
