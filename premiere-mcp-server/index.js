@@ -27,6 +27,8 @@ const COMMAND_TIMEOUT_MS = 30_000;
 /* ------------------------------------------------------------------ */
 
 let panelSocket = null;
+const panelWaiters = []; // resolvers waiting for the panel to (re)connect
+const PANEL_WAIT_MS = 15_000; // panel retries every ~2s; the bridge only lives while a job runs
 const pending = new Map(); // requestId -> { resolve, reject, timeout }
 
 const wss = new WebSocketServer({ port: WS_PORT });
@@ -48,6 +50,7 @@ wss.on("error", (err) => {
 wss.on("connection", (socket) => {
   console.error(`[bridge] UXP panel connected on port ${WS_PORT}`);
   panelSocket = socket;
+  while (panelWaiters.length) panelWaiters.shift()();
 
   socket.on("message", (raw) => {
     let msg;
@@ -75,12 +78,23 @@ wss.on("connection", (socket) => {
  * Sends a command to the connected UXP panel and waits for its response.
  * Rejects if no panel is connected, or if the panel doesn't respond in time.
  */
-function sendToPanel(action, params = {}) {
+function waitForPanel() {
+  const isOpen = () => panelSocket && panelSocket.readyState === panelSocket.OPEN;
+  if (isOpen()) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    if (!panelSocket || panelSocket.readyState !== panelSocket.OPEN) {
-      reject(new Error("No Premiere UXP panel connected. Is Premiere open with the MCP Bridge panel loaded?"));
-      return;
-    }
+    const waiter = () => { clearTimeout(t); resolve(); };
+    const t = setTimeout(() => {
+      const i = panelWaiters.indexOf(waiter);
+      if (i >= 0) panelWaiters.splice(i, 1);
+      reject(new Error(`No Premiere UXP panel connected after ${PANEL_WAIT_MS / 1000}s. Is Premiere open with the MCP Bridge panel loaded?`));
+    }, PANEL_WAIT_MS);
+    panelWaiters.push(waiter);
+  });
+}
+
+async function sendToPanel(action, params = {}) {
+  await waitForPanel();
+  return new Promise((resolve, reject) => {
 
     const requestId = randomUUID();
     const timeout = setTimeout(() => {
@@ -139,6 +153,8 @@ server.tool(
   }
 );
 
+// NOTE: unused/unwired — the user now syncs clips in Premiere before starting
+// a job. Left in place in case automated sync becomes possible later.
 server.tool(
   "sync_clips",
   "Synchronizes 3 raw clips by audio waveform into one multi-cam or merged sequence.",
@@ -149,6 +165,10 @@ server.tool(
   }
 );
 
+// NOTE: unused/unwired as of the current pipeline redesign — filler cleanup
+// is now a manual pass the editor does independently in Premiere's
+// Text-Based Editing panel, not an orchestrated step. Left in place
+// intentionally in case it's needed again for a different purpose later.
 server.tool(
   "remove_fillers",
   "Runs Premiere's native filler-word/silence detection and cut on the given sequence.",

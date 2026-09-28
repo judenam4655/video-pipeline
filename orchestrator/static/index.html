@@ -12,25 +12,29 @@
   .step.error { color: #cf222e; }
   #log { background: #f6f8fa; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px; white-space: pre-wrap; height: 200px; overflow-y: auto; margin-top: 16px; }
   button { padding: 8px 16px; font-size: 14px; cursor: pointer; }
-  input[type=file] { margin: 10px 0; }
+  button:disabled { cursor: not-allowed; opacity: 0.5; }
+  .checklist { background: #f6f8fa; border-radius: 6px; padding: 12px 16px; margin: 12px 0; }
+  .checklist label { display: block; padding: 4px 0; cursor: pointer; }
 </style>
 </head>
 <body>
   <h1>영상 편집 파이프라인 (베타)</h1>
 
-  <div id="upload-section">
-    <p>3개의 원본 영상 파일을 선택하세요.</p>
-    <input type="file" id="fileInput" multiple accept="video/*" />
-    <br/>
-    <button id="startBtn">시작</button>
+  <div id="start-section">
+    <p>시작하기 전에 Premiere Pro에서 아래를 먼저 확인하세요.</p>
+    <div class="checklist">
+      <label><input type="checkbox" class="pre" /> 프로젝트가 열려 있고, 동기화된 시퀀스가 활성화되어 있다</label>
+      <label><input type="checkbox" class="pre" /> 메인 클립이 시퀀스 00:00:00에서 시작한다 (앞부분 트리밍 완료)</label>
+      <label><input type="checkbox" class="pre" /> 프로젝트 패널에서 메인 클립을 선택했고, 자막(트랜스크립트)이 이미 생성되어 있다</label>
+      <label><input type="checkbox" class="pre" /> MCP Bridge 패널이 열려 있다</label>
+    </div>
+    <button id="startBtn" disabled>시작</button>
   </div>
 
   <div id="status-section" style="display:none; margin-top: 24px;">
-    <div class="step" data-step="1">1. 영상 동기화 (sync_clips)</div>
-    <div class="step" data-step="2">2. 추임새 제거 (remove_fillers)</div>
-    <div class="step" data-step="3">3. 자막 추출 (transcribe)</div>
-    <div class="step" data-step="4">4. 삭제 후보 탐지 (detect_deletions)</div>
-    <div class="step" data-step="5">5. 마커 표시 (place_markers)</div>
+    <div class="step" data-step="1">1. 자막 가져오기 (get_transcript)</div>
+    <div class="step" data-step="2">2. 삭제 후보 탐지 (detect_deletions)</div>
+    <div class="step" data-step="3">3. 마커 표시 (place_markers)</div>
     <div id="log"></div>
     <button id="resumeBtn" style="display:none;">재시작 (실패 지점부터)</button>
   </div>
@@ -39,21 +43,20 @@
 let currentJobId = null;
 let pollHandle = null;
 
-document.getElementById("startBtn").onclick = async () => {
-  const files = document.getElementById("fileInput").files;
-  if (files.length !== 3) {
-    alert("정확히 3개의 영상을 선택해주세요.");
-    return;
-  }
-  const form = new FormData();
-  for (const f of files) form.append("files", f);
+const startBtn = document.getElementById("startBtn");
+const checks = document.querySelectorAll(".pre");
+checks.forEach(c => c.onchange = () => {
+  startBtn.disabled = ![...checks].every(x => x.checked);
+});
 
-  const res = await fetch("/jobs", { method: "POST", body: form });
+startBtn.onclick = async () => {
+  startBtn.disabled = true;
+  const res = await fetch("/jobs", { method: "POST" });
   const data = await res.json();
-  if (data.error) { alert(data.error); return; }
+  if (data.error) { alert(data.error); startBtn.disabled = false; return; }
 
   currentJobId = data.job_id;
-  document.getElementById("upload-section").style.display = "none";
+  document.getElementById("start-section").style.display = "none";
   document.getElementById("status-section").style.display = "block";
   startPolling();
 };
@@ -65,6 +68,7 @@ document.getElementById("resumeBtn").onclick = async () => {
 };
 
 function startPolling() {
+  clearInterval(pollHandle);
   pollHandle = setInterval(pollStatus, 2000);
   pollStatus();
 }

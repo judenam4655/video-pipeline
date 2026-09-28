@@ -1,12 +1,19 @@
 """
 Thin wrapper around the official MCP Python client, so the orchestrator can
-call tools on the Premiere bridge server (Node, stdio) and the transcriber
-server (Python, stdio) without repeating boilerplate at each call site.
+call tools on the Premiere bridge server (Node, stdio) without repeating
+boilerplate at each call site.
 
-Both servers are launched as subprocesses and talked to over stdio, which is
+The server is launched as a subprocess and talked to over stdio, which is
 the standard local MCP transport — no ports, no networking config needed for
 this leg (the Node server's own WebSocket-to-UXP leg is separate and
 internal to that process).
+
+NOTE: this used to also launch a transcriber-mcp-server subprocess, back
+when transcription required a manually-exported audio file passed to a
+separate Transcriber MCP tool. That's gone now that get_transcript reads
+directly from Premiere's Project panel — removed here rather than left
+unwired, since keeping a whole extra subprocess alive per job for no
+caller is real overhead, not just dead code sitting still.
 """
 
 import json
@@ -30,7 +37,11 @@ class McpServerHandle:
         # MCP tool results are a list of content blocks; we're only using
         # plain text blocks (JSON-encoded strings) in this project.
         text_parts = [block.text for block in result.content if hasattr(block, "text")]
-        return "\n".join(text_parts)
+        text = "\n".join(text_parts)
+        # Field name differs across mcp SDK versions (isError vs is_error).
+        if getattr(result, "is_error", None) or getattr(result, "isError", None):
+            raise RuntimeError(f"MCP tool '{name}' failed: {text}")
+        return text
 
     async def call_tool_json(self, name: str, arguments: dict) -> dict:
         raw = await self.call_tool(name, arguments)
@@ -42,13 +53,12 @@ class McpServers:
     Usage:
         async with McpServers() as servers:
             info = await servers.premiere.call_tool_json("get_active_sequence_info", {})
-            transcript = await servers.transcriber.call_tool_json("transcribe", {...})
+            transcript = await servers.premiere.call_tool_json("get_transcript", {})
     """
 
     def __init__(self):
         self._stack = AsyncExitStack()
         self.premiere: McpServerHandle | None = None
-        self.transcriber: McpServerHandle | None = None
 
     async def __aenter__(self):
         await self._stack.__aenter__()
@@ -65,19 +75,6 @@ class McpServers:
         )
         await premiere_session.initialize()
         self.premiere = McpServerHandle(premiere_session)
-
-        transcriber_params = StdioServerParameters(
-            command="python3",
-            args=[str(PROJECT_ROOT / "transcriber-mcp-server" / "server.py")],
-        )
-        transcriber_read, transcriber_write = await self._stack.enter_async_context(
-            stdio_client(transcriber_params)
-        )
-        transcriber_session = await self._stack.enter_async_context(
-            ClientSession(transcriber_read, transcriber_write)
-        )
-        await transcriber_session.initialize()
-        self.transcriber = McpServerHandle(transcriber_session)
 
         return self
 

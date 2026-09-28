@@ -7,6 +7,7 @@ debugging, which matters a lot at the beta stage.
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from dataclasses import dataclass, field, asdict
 from typing import Any
@@ -21,8 +22,6 @@ class JobState:
     step: int = 0  # 0 = not started
     status: str = "pending"  # pending | running | error | done
     error_message: str | None = None
-    raw_clip_paths: list[str] = field(default_factory=list)
-    synced_sequence_id: str | None = None
     transcript: dict[str, Any] | None = None
     deletions: list[dict[str, Any]] | None = None
     log: list[str] = field(default_factory=list)
@@ -34,8 +33,10 @@ class JobState:
         self.path().write_text(json.dumps(asdict(self), ensure_ascii=False, indent=2))
 
     def note(self, message: str) -> None:
-        self.log.append(message)
+        line = f"{datetime.now():%H:%M:%S} {message}"
+        self.log.append(line)
         self.save()
+        print(f"[job {self.job_id}] {line}", flush=True)  # also visible in the uvicorn terminal
 
 
 def load(job_id: str) -> JobState:
@@ -46,11 +47,11 @@ def load(job_id: str) -> JobState:
     return JobState(**data)
 
 
-def load_or_init(job_id: str, raw_clip_paths: list[str] | None = None) -> JobState:
+def load_or_init(job_id: str) -> JobState:
     p = STATE_DIR / f"{job_id}.json"
     if p.exists():
         return load(job_id)
-    state = JobState(job_id=job_id, raw_clip_paths=raw_clip_paths or [])
+    state = JobState(job_id=job_id)
     state.save()
     return state
 

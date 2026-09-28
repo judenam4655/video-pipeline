@@ -108,29 +108,29 @@ function connect() {
 async function handleAction(action, params) {
     switch (action) {
         case "ping":
-        return { pong: true };
+            return { pong: true };
 
         case "remove_fillers":
-        return await removeFillers(params.sequenceId);
+            return await removeFillers(params.sequenceId);
 
         case "place_marker":
-        return await placeMarker(params);
+            return await placeMarker(params);
 
         case "get_active_sequence_info":
-        return await getActiveSequenceInfo();
+            return await getActiveSequenceInfo();
 
         // case "debug_commands":
         // const ppro = require("premierepro");
         // return { message: "Check UXP console for command lists if supported by the API." };
 
         case "get_transcript":
-        return await getTranscript();
+            return await getTranscript();
 
-        case "debug_commands":
-        return await debugCommands();
+        // case "debug_commands":
+        // return await debugCommands();
 
-        case "debug_text_segments":
-        return await debugTextSegments();
+        // case "debug_text_segments":
+        // return await debugTextSegments();
 
         default:
         throw new Error(`Unknown action: ${action}`);
@@ -143,18 +143,18 @@ async function handleAction(action, params) {
 /* Premiere with the UXP Developer Tool's console open for debugging.     */
 /* ---------------------------------------------------------------------- */
 
-async function syncClips(clipPaths) {
-    const ppro = require("premierepro");
+// async function syncClips(clipPaths) {
+//     const ppro = require("premierepro");
     
-    const utilsKeys = ppro.Utils ? Object.getOwnPropertyNames(ppro.Utils) : [];
-    const projUtilsKeys = ppro.ProjectUtils ? Object.getOwnPropertyNames(ppro.ProjectUtils) : [];
+//     const utilsKeys = ppro.Utils ? Object.getOwnPropertyNames(ppro.Utils) : [];
+//     const projUtilsKeys = ppro.ProjectUtils ? Object.getOwnPropertyNames(ppro.ProjectUtils) : [];
 
-    return { 
-        message: "Utils Dump",
-        utils: utilsKeys,
-        project_utils: projUtilsKeys
-    };
-}
+//     return { 
+//         message: "Utils Dump",
+//         utils: utilsKeys,
+//         project_utils: projUtilsKeys
+//     };
+// }
 
 async function removeFillers(sequenceId) {
     // FALLBACK: Since UXP API hooks for Text-Based Editing are unverified, 
@@ -173,91 +173,91 @@ async function removeFillers(sequenceId) {
     };
 }
 
-async function debugTextSegments() {
-    const ppro = require("premierepro");
+// async function debugTextSegments() {
+    // const ppro = require("premierepro");
 
-    const project = await ppro.Project.getActiveProject();
-    if (!project) {
-        throw new Error("No active Premiere project.");
-    }
+    // const project = await ppro.Project.getActiveProject();
+    // if (!project) {
+    //     throw new Error("No active Premiere project.");
+    // }
 
-    const sequence = await project.getActiveSequence();
-    if (!sequence) {
-        throw new Error("No active sequence.");
-    }
+    // const sequence = await project.getActiveSequence();
+    // if (!sequence) {
+    //     throw new Error("No active sequence.");
+    // }
 
-    const result = {
-        sequenceName: sequence.name,
-        textSegments: null,
-    };
+    // const result = {
+    //     sequenceName: sequence.name,
+    //     textSegments: null,
+    // };
 
-    try {
-        const json = await ppro.TextSegments.exportToJSON(sequence);
+    // try {
+    //     const json = await ppro.TextSegments.exportToJSON(sequence);
 
-        result.textSegments = json;
-        log("=== TEXT SEGMENTS EXPORT ===");
-        log(typeof json === "string" ? json : JSON.stringify(json, null, 2));
+    //     result.textSegments = json;
+    //     log("=== TEXT SEGMENTS EXPORT ===");
+    //     log(typeof json === "string" ? json : JSON.stringify(json, null, 2));
 
-    } catch (err) {
-        result.textSegmentsError = err.message || String(err);
-        log(`TextSegments.exportToJSON failed: ${result.textSegmentsError}`);
-    }
+    // } catch (err) {
+    //     result.textSegmentsError = err.message || String(err);
+    //     log(`TextSegments.exportToJSON failed: ${result.textSegmentsError}`);
+    // }
 
-    return result;
-}
+    // return result;
+// }
 
-async function debugCommands() {
-    const ppro = require("premierepro");
+// async function debugCommands() {
+    // const ppro = require("premierepro");
 
-    function inspectObject(name, obj) {
-        if (!obj) {
-            return {
-                exists: false,
-                type: typeof obj,
-                keys: [],
-                prototypeKeys: [],
-            };
-        }
+    // function inspectObject(name, obj) {
+    //     if (!obj) {
+    //         return {
+    //             exists: false,
+    //             type: typeof obj,
+    //             keys: [],
+    //             prototypeKeys: [],
+    //         };
+    //     }
 
-        let prototypeKeys = [];
+    //     let prototypeKeys = [];
 
-        try {
-            const proto = Object.getPrototypeOf(obj);
-            if (proto) {
-                prototypeKeys = Object.getOwnPropertyNames(proto).sort();
-            }
-        } catch (e) {
-            prototypeKeys = [`ERROR: ${e.message || e}`];
-        }
+    //     try {
+    //         const proto = Object.getPrototypeOf(obj);
+    //         if (proto) {
+    //             prototypeKeys = Object.getOwnPropertyNames(proto).sort();
+    //         }
+    //     } catch (e) {
+    //         prototypeKeys = [`ERROR: ${e.message || e}`];
+    //     }
 
-        return {
-            exists: true,
-            type: typeof obj,
-            keys: Object.getOwnPropertyNames(obj).sort(),
-            prototypeKeys,
-        };
-    }
+    //     return {
+    //         exists: true,
+    //         type: typeof obj,
+    //         keys: Object.getOwnPropertyNames(obj).sort(),
+    //         prototypeKeys,
+    //     };
+    // }
 
-    const result = {
-        Application: inspectObject("Application", ppro.Application),
-        Transcript: inspectObject("Transcript", ppro.Transcript),
-        TextSegments: inspectObject("TextSegments", ppro.TextSegments),
-        SequenceEditor: inspectObject("SequenceEditor", ppro.SequenceEditor),
-        Action: inspectObject("Action", ppro.Action),
-        Utils: inspectObject("Utils", ppro.Utils),
-    };
+    // const result = {
+    //     Application: inspectObject("Application", ppro.Application),
+    //     Transcript: inspectObject("Transcript", ppro.Transcript),
+    //     TextSegments: inspectObject("TextSegments", ppro.TextSegments),
+    //     SequenceEditor: inspectObject("SequenceEditor", ppro.SequenceEditor),
+    //     Action: inspectObject("Action", ppro.Action),
+    //     Utils: inspectObject("Utils", ppro.Utils),
+    // };
 
-    log("=== PREMIERE UXP API DEEP DEBUG ===");
+    // log("=== PREMIERE UXP API DEEP DEBUG ===");
 
-    for (const [name, info] of Object.entries(result)) {
-        log(`--- ${name} ---`);
-        log(`type: ${info.type}`);
-        log(`keys: ${info.keys.join(", ")}`);
-        log(`prototype: ${info.prototypeKeys.join(", ")}`);
-    }
+    // for (const [name, info] of Object.entries(result)) {
+    //     log(`--- ${name} ---`);
+    //     log(`type: ${info.type}`);
+    //     log(`keys: ${info.keys.join(", ")}`);
+    //     log(`prototype: ${info.prototypeKeys.join(", ")}`);
+    // }
 
-    return result;
-}
+    // return result;
+// }
 
 async function placeMarker(params) {
     // Verified against developer.adobe.com/premiere-pro/uxp/ppro-reference
@@ -361,7 +361,7 @@ async function getTranscript() {
         const fullText = (seg.words || []).map(w => w.text).join(" ");
         return {
             start: seg.start,
-            end: seg.start + seg.duration,
+            end: seg.end ?? (seg.start + (seg.duration || 0)),
             speaker: seg.speaker,
             text: fullText,
             words: seg.words || []

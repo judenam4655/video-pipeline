@@ -102,8 +102,8 @@ def convert_transcript(raw_json: dict) -> tuple[list[dict], list[dict]]:
             if text:
                 segments.append(
                     {
-                        "start": round(chunk_words[0].start, 2),
-                        "end": round(chunk_words[-1].end, 2),
+                        "start": chunk_words[0].start,
+                        "end": chunk_words[-1].end,
                         "text": text,
                     }
                 )
@@ -112,7 +112,7 @@ def convert_transcript(raw_json: dict) -> tuple[list[dict], list[dict]]:
     prev: WordToken | None = None
     for w in words:
         if w.is_disfluency:
-            disfluency_spans.append({"start": round(w.start, 2), "end": round(w.end, 2)})
+            disfluency_spans.append({"start": w.start, "end": w.end})
 
         if prev is not None:
             gap = w.start - prev.end
